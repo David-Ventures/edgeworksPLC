@@ -1,0 +1,18 @@
+# STM32CubeMX / Keil / GCC / build artifacts
+/build
+/Debug
+/Release
+/.settings
+*.elf
+*.hex
+*.bin
+*.map
+*.d
+*.o
+
+# VSCode
+.vscode/
+
+# Mac/Windows
+.DS_Store
+Thumbs.db
