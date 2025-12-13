@@ -27,7 +27,7 @@
  {
 	 uint32_t Time;
 	 uint8_t SubCmd;
- }StatLed_Params;
+ }CmdQ_Params;
 
 typedef struct
 {
@@ -44,7 +44,7 @@ typedef enum
 {
     NULLCMD = 0,
     FLASH_LED,
-	OVEN_CONTROL
+	IO_SCAN
 }CmdCode;
 
 void InitQueue(void);

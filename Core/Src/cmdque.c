@@ -90,27 +90,32 @@ bool ProcQueue(uint32_t Cmd, void *pPIn, void *pPOut)
     {
 		case FLASH_LED:
 		{
-			StatLed_Params *slp = (StatLed_Params *)pPIn;
+			CmdQ_Params *sl_p = (CmdQ_Params *)pPIn;
 
-			if (slp->SubCmd == 1)
+			if (sl_p->SubCmd == 1)
 			{
 				STAT_OFF(); //Led On
-				slp->Time = 1000; // 1 sec
-				slp->SubCmd = 0;
-				CommandQueue(FLASH_LED, (void *)slp, slp->Time);
+				sl_p->Time = 1000; // 1 sec
+				sl_p->SubCmd = 0;
+				CommandQueue(FLASH_LED, (void *)sl_p, sl_p->Time);
 			}
 			else
 			{
 				STAT_ON(); // Led Off
-				slp->Time = 1000; // 1 sec
-				slp->SubCmd = 1;
-				CommandQueue(FLASH_LED, (void *)slp, slp->Time);
+				sl_p->Time = 1000; // 1 sec
+				sl_p->SubCmd = 1;
+				CommandQueue(FLASH_LED, (void *)sl_p, sl_p->Time);
 			}
 
 			return false;
 		}
+		case IO_SCAN:
 		{
-			default:
+
+			return false;
+		}
+		default:
+		{
 			return true;
 		}
 

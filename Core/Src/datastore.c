@@ -8,6 +8,7 @@
  */
 #include "main.h"
 #include "datastore.h"
+#include <math.h>
 #include <stdbool.h>
 
 
@@ -24,8 +25,13 @@ void initStore()
 uint16_t ascToU16(char data[])
 {
 	uint16_t tmp = 0;
-	tmp = (((data[3] - 0x30) * 1000) + ((data[2] - 0x30) * 100) + ((data[1] - 0x30) * 10) + (data[0] - 0x30));
-	return tmp & 0x07;
+	uint8_t len = strlen(data);
+	for (uint8_t i = 0; i < len; i++)
+	{
+		tmp += ((data[i] - 0x30) * pow(10,len-i-1));
+	}
+//	tmp = (((data[3] - 0x30) * 1000) + ((data[2] - 0x30) * 100) + ((data[1] - 0x30) * 10) + (data[0] - 0x30));
+	return tmp;
 }
 
 uint16_t ascToU8(char data[])

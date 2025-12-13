@@ -63,6 +63,11 @@ void UART_Debug_Process(char *in) {
     else strcpy(in, "\0");
 }
 
+uint8_t bufDI = 0;
+uint8_t bufDO = 0;
+int16_t bufAI[8] = {0,0,0,0,0,0,0,0};
+int16_t bufAO[8] = {0,0,0,0,0,0,0,0};
+
 // HAL callback implementation
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	if (huart->Instance == debug_uart->Instance) {
@@ -72,14 +77,11 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
         HAL_UART_Receive_IT(debug_uart, &rxByte, 1);
         if (rxByte == '\n') {
             rxBuffer[rxIndex] = '\0';  // Null-terminate string
-            int8_t bufDI = 0x03;
-            int8_t bufDO;
-            int16_t bufAI[8] = {0,122,2319,10,0,0,0,0};
-            int16_t bufAO[8];
 
             char dir[6] = {0,0,0,0,0,0};
             char space[3] = {0,0,0};
             char addr[5] = {0,0,0,0,0};
+            char qty[2] = {0,0};
             char val[6] = {0,0,0,0,0,0};
             char id[2] = {0,0};
 
@@ -102,13 +104,15 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 				if(strstr(dir, "RD"))
 				{
 					strcpy(&addr, strtok(NULL, ","));
+					strcpy(&qty, strtok(NULL, ","));
 					strcpy(&id, strtok(NULL, ","));
 				}
 				else if (strstr(dir, "WR"))
 				{
 					strcpy(&addr, strtok(NULL, ","));
-					strcpy(&val, strtok(NULL, ","));
+					strcpy(&qty, strtok(NULL, ","));
 					strcpy(&id, strtok(NULL, ","));
+					strcpy(&val, strtok(NULL, ",")); // Todo: array
 				}
 
 				// dir is W=Write, R=Read
@@ -121,36 +125,52 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 					if (strcmp(space, "0") == 0) // DI
 					{
 						uint8_t addr8; // 0 @ 0x03
+						uint8_t qty8;
+
 						char newstr[10] = {0,0,0,0,0,0,0,0,0,0};
 
 						if ((addr8 = ascToU8(addr)) > 7) // Error
 						{
 							// Max 8 bits
-							sprintf(newstr, "ERR,%d,%d\n", id[0], 1); // Code for Out of Range
+							sprintf(newstr, "ERR,%d,%d\n", id[0], 2); // Code for Out of Range
+							HAL_UART_Transmit(huart, (uint8_t*)newstr, strlen(newstr), HAL_MAX_DELAY);
+						}
+						if ((qty8 = ascToU8(qty)) > 7) // Error
+						{
+							// Max 8 bits
+							sprintf(newstr, "ERR,%d,%d\n", id[0], 3); // Code for Qty Out of Range
 							HAL_UART_Transmit(huart, (uint8_t*)newstr, strlen(newstr), HAL_MAX_DELAY);
 						}
 						else
 						{
-
-							sprintf(&newstr[0], "OK,%s,%d\n", &id[0], ((bufDI) >> (addr8-1)) & 0x01);
+							// Todo, prepare to receive qty bytes
+							sprintf(&newstr[0], "OK,%s,%d\n", &id[0], ((bufDI) >> (addr8)) & 0x01);
 							HAL_UART_Transmit(huart, (uint8_t*)newstr, strlen(newstr), HAL_MAX_DELAY);
 						}
 					}
-					else if(strcmp(space, "3") == 0) // DO
+					else if(strcmp(space, "3") == 0) // AI
 					{
 						// WR,1,0,1,8\n
 						// WR,<space>,<reg>,<value>,<tagId>\n
 						uint16_t addr8; // 0 @ 0x03
+						uint16_t qty8; // 0 @ 0x03
 						char newstr[10] = {0,0,0,0,0,0,0,0,0,0};
 
 						if ((addr8 = ascToU8(addr)) > 7) // Error
 						{
 							// Max 8 bits
-							sprintf(newstr, "ERR,%d,%d\n", &id[0], 1); // Code for Out of Range
+							sprintf(newstr, "ERR,%d,%d\n", &id[0], 2); // Code for Out of Range
+							HAL_UART_Transmit(huart, (uint8_t*)newstr, strlen(newstr), HAL_MAX_DELAY);
+						}
+						if ((qty8 = ascToU8(qty)) > 7) // Error
+						{
+							// Max 8 bits
+							sprintf(newstr, "ERR,%d,%d\n", &id[0], 3); // Code for Qty Out of Range
 							HAL_UART_Transmit(huart, (uint8_t*)newstr, strlen(newstr), HAL_MAX_DELAY);
 						}
 						else
 						{
+							// Todo prepare to receive qty int16_t words
 							sprintf(&newstr[0], "OK,%s,%d\n", &id[0], bufAI[addr8]);
 							HAL_UART_Transmit(huart, (uint8_t*)newstr, strlen(newstr), HAL_MAX_DELAY);
 						}
@@ -161,45 +181,65 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 					if (strcmp(space, "1") == 0) // DO
 					{
 						uint16_t addr8; // 0 @ 0x03
+						uint8_t qty8;
 
 						char newstr[10] = {0,0,0,0,0,0,0,0,0,0};
 
 						if ((addr8 = ascToU8(addr)) > 7) // Error
 						{
 							// Max 8 regs
-							sprintf(newstr, "ERR,%d,%d\n", &id[0], 1); // Code for Addr Out of Range
+							sprintf(newstr, "ERR,%d,%s\n", &id[0], '2'); // Code for Addr Out of Range
+							HAL_UART_Transmit(huart, (uint8_t*)newstr, strlen(newstr), HAL_MAX_DELAY);
+						}
+						if ((qty8 = ascToU8(qty)) > 7) // Error
+						{
+							// Max 8 regs
+							sprintf(newstr, "ERR,%d,%s\n", &id[0], '3'); // Code for Addr Out of Range
 							HAL_UART_Transmit(huart, (uint8_t*)newstr, strlen(newstr), HAL_MAX_DELAY);
 						}
 						else if ((val[0] < 0x30) || (val[0] > 0x31))
 						{
-							sprintf(newstr, "ERR,%d,%d\n", &id[0], 2); // Code for Val Out of Range
+							sprintf(newstr, "ERR,%d,%s\n", &id[0], '4'); // Code for Val Out of Range
 							HAL_UART_Transmit(huart, (uint8_t*)newstr, strlen(newstr), HAL_MAX_DELAY);
 						}
 						else
 						{
-							sprintf(&newstr[0], "OK,%s\n", &id[0]);
-							int8_t diVal = (int8_t)((val[0] - 0x30) << addr8);
+							// Prepare to write qty values
+							uint8_t diVal = (uint8_t)((val[0] - 0x30) << addr8);
 							if (diVal > 0) bufDO |= diVal;
-							else bufDO &= ~diVal;
+							else bufDO &= ~(1 << diVal);
+							bufDI = bufDO; // simulated return
+							HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);  // Toggle output PA2
+
+							sprintf(&newstr[0], "OK,%s,%d\n", &id[0], ((bufDO >> addr8) & 0x01));
 							HAL_UART_Transmit(huart, (uint8_t*)newstr, strlen(newstr), HAL_MAX_DELAY);
 						}
 					}
 					else if (strcmp(space, "4") == 0) // AO
 					{
 						uint16_t addr8; // 0 @ 0x03
+						uint8_t qty8;
 
 						char newstr[10] = {0,0,0,0,0,0,0,0,0,0};
 
 						if ((addr8 = ascToU8(addr)) > 7) // Error
 						{
 							// Max 8 regs
-							sprintf(newstr, "ERR,%d,%d\n", &id[0], 1); // Code for Out of Range
+							sprintf(newstr, "ERR,%d,%d\n", &id[0], 2); // Code for Out of Range
+							HAL_UART_Transmit(huart, (uint8_t*)newstr, strlen(newstr), HAL_MAX_DELAY);
+						}
+						if ((qty8 = ascToU8(qty)) > 7) // Error
+						{
+							// Max 8 regs
+							sprintf(newstr, "ERR,%d,%d\n", &id[0], 3); // Code for Out of Range
 							HAL_UART_Transmit(huart, (uint8_t*)newstr, strlen(newstr), HAL_MAX_DELAY);
 						}
 						else
 						{
-							sprintf(&newstr[0], "OK,%s\n", &id[0]);
-							bufAO[addr8] = ascToU16(&val[0]);
+							// Prepare to write qty values
+							bufAO[addr8] = ascToU16(val);
+							bufAI[addr8] = bufAO[addr8];
+							sprintf(&newstr[0], "OK,%s,%04d\n", &id[0], bufAO[addr8]);
 							HAL_UART_Transmit(huart, (uint8_t*)newstr, strlen(newstr), HAL_MAX_DELAY);
 						}					}
 				}

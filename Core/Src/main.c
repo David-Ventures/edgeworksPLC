@@ -63,7 +63,7 @@ extern ItfcStruct IsRet;
 
 /* USER CODE BEGIN PFP */
 void *ParamOut;
-StatLed_Params slp;
+CmdQ_Params sl_p, IOScan_p;
 uint32_t Cmd;
 
 /* USER CODE END PFP */
@@ -107,10 +107,11 @@ int main(void)
   /* USER CODE END SysInit */
 
   /* USER CODE BEGIN 2 */
-  slp.SubCmd = 0;
-  slp.Time = 500;
+  sl_p.SubCmd = 0;
+  sl_p.Time = 500;
 
-  CommandQueue(FLASH_LED, &slp, slp.Time);
+//  CommandQueue(FLASH_LED, &sl_p, sl_p.Time);
+  CommandQueue(IO_SCAN, &IOScan_p, IOScan_p.Time);
   /* USER CODE END 2 */
 
   /* Infinite loop */
