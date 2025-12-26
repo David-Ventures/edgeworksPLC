@@ -17,6 +17,8 @@
 #include "cmdque.h"
 //#include "heaterControl.h"
 #include "../Drivers/Gpio/system.h"
+#include "../Drivers/Tim/tim_driver.h"
+#include "../Drivers/Motor/motor_drv8833.h"
 
 /*#define true 1
 #define false 0*/
@@ -114,6 +116,35 @@ bool ProcQueue(uint32_t Cmd, void *pPIn, void *pPOut)
 
 			return false;
 		}
+		case MOTOR_LOOP:
+		{
+			Motor_Params *ml_p = (Motor_Params *)pPIn;
+			uint32_t t = ml_p->Time; // 10 msec
+			MotorDRV8833 *m = ml_p->m;
+			Motor_Update(m);
+			CommandQueue(MOTOR_LOOP, ml_p, t);
+		}
+		case SET_PWM:
+		{
+			int16_t tim;
+
+			Motor_Params *mpwm1_p = (Motor_Params *)pPIn;
+			if(mpwm1_p->sel == 2)
+			{
+				Motor_Params *mpwm2_p = (Motor_Params *)pPIn;
+				tim = (int16_t)mpwm2_p->Time;
+				Motor_Set(mpwm2_p->m, tim);
+			}
+			else if(mpwm1_p->sel == 1)
+			{
+				Motor_Params *mpwm1_p = (Motor_Params *)pPIn;
+				tim = (int16_t)mpwm1_p->Time;
+				Motor_Set(mpwm1_p->m, tim);
+			}
+			Motor_SetStandby((tim == 0) ? 0 : 1);
+			return false;
+		}
+
 		default:
 		{
 			return true;

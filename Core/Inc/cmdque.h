@@ -44,7 +44,9 @@ typedef enum
 {
     NULLCMD = 0,
     FLASH_LED,
-	IO_SCAN
+	IO_SCAN,
+	MOTOR_LOOP,
+	SET_PWM
 }CmdCode;
 
 void InitQueue(void);

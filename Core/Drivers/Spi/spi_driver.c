@@ -8,10 +8,10 @@
 #include "main.h"
 #include "spi_driver.h"
 
-void SPI1_Init(void)
+/*void SPI1_Init(void)
 {
 
-  /* SPI1 parameter configuration*/
+  // SPI1 parameter configuration
   hspi1.Instance = SPI1;
   hspi1.Init.Mode = SPI_MODE_MASTER;
   hspi1.Init.Direction = SPI_DIRECTION_2LINES;
@@ -29,5 +29,5 @@ void SPI1_Init(void)
     Error_Handler();
   }
 
-}
+}*/
 
