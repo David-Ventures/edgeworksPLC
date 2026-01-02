@@ -20,7 +20,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "cmdque.h"
-#include "pwm.h"
 #include "../Drivers/Tim/tim_driver.h"
 #include "../Drivers/Motor/motor_drv8833.h"
 
@@ -69,14 +68,12 @@ extern ItfcStruct IsRet;
 /* USER CODE BEGIN PFP */
 void *ParamOut;
 CmdQ_Params sl_p, IOScan_p, pwm_set;
-Motor_Params ml_p, mpwm1_p, mpwm2_p;
+Motor_Params ml_p;
 uint32_t Cmd;
 MotorDRV8833 M1 = {
   .htim = &htim3,
   .ch_in1 = TIM_CHANNEL_1,
-  .ch_in2 = TIM_CHANNEL_2,
-  .ch_in3 = TIM_CHANNEL_3,
-  .ch_in4 = TIM_CHANNEL_4,
+  .ch_in2 = TIM_CHANNEL_3,
   .max = 1000,
   .deadband = 10,
   .min_start = 60,
@@ -84,23 +81,24 @@ MotorDRV8833 M1 = {
   .timeout_ms = 500,         // stop if no command for 500ms
   .zero_mode = MOTOR_ZERO_COAST
 };
-MotorDRV8833 M2 = {};
+MotorDRV8833 M2 = {
+  .htim = &htim3,
+  .ch_in1 = TIM_CHANNEL_2,
+  .ch_in2 = TIM_CHANNEL_4,
+  .max = 1000,
+  .deadband = 10,
+  .min_start = 60,
+  .slew_step = 15,           // 200 units per update tick (10ms)
+  .timeout_ms = 500,         // stop if no command for 500ms
+  .zero_mode = MOTOR_ZERO_COAST
+};
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-static void PWM_Start(void)
-{
-  // Ensure duty starts at 0
-  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0);
-  __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
 
-  if (HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1) != HAL_OK) Error_Handler();
-  if (HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2) != HAL_OK) Error_Handler();
-  if (HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3) != HAL_OK) Error_Handler();
-  if (HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_4) != HAL_OK) Error_Handler();
-}
+
 /* USER CODE END 0 */
 
 /**
@@ -128,41 +126,17 @@ int main(void)
   /* USER CODE BEGIN SysInit */
   /* Initialize all configured peripherals */
   InitGPIO();
-//  MX_ADC1_Init();
-//  MX_ADC2_Init();
   USART1_Init();
   TIM3_Init();
   Motor_Init(&M1);
-//  PWM_Start();
+  Motor_Init(&M2);
   UART_Debug_Init(&huart1);
-  initStore();
-
-  Motor_SetStandby(1); // From tim_driver.c for now
 
   // Start Motor Loop
   ml_p.m = &M1;
   ml_p.Time = 10;
   CommandQueue(MOTOR_LOOP, &ml_p, 100); //Sets loop time of 10 ms in 100 ms
 
-
-  // Set M1 to 25% in quarter sec.
-  mpwm1_p.m = &M1;
-  mpwm1_p.sel = 1;
-  mpwm1_p.Time = 1000;
-  CommandQueue(SET_PWM, &mpwm1_p, 250);
-//  PWM_SetDuty_0_1000(0, 250);
-
-
-  // Set M1 to 0% in 1250 msec.
-  mpwm2_p.m = &M1;
-  mpwm2_p.sel = 2;
-  mpwm2_p.Time = 0;
-  CommandQueue(SET_PWM, &mpwm2_p, 3250);
-
-/*  pwm_set.SubCmd = 0;
-  pwm_set.Time = 1000;
-
-  CommandQueue(SET_PWM, &pwm_set, pwm_set.Time); // run for 1 second then stop*/
   /* USER CODE END SysInit */
 
   /* USER CODE BEGIN 2 */

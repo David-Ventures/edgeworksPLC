@@ -7,6 +7,7 @@
 #include "main.h"
 #include "uart_debug.h"
 #include "datastore.h"
+#include "../Motor/motor_drv8833.h"
 #include <string.h>
 
 
@@ -17,6 +18,7 @@ static volatile uint16_t rxIndex = 0;
 
 extern uint8_t procState;
 extern float ovenTemp;
+extern MotorDRV8833 M1, M2;
 
 void UART_Debug_Init(UART_HandleTypeDef *huart) {
     debug_uart = huart;
@@ -204,15 +206,14 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 						}
 						else
 						{
-							// Prepare to write qty values
-							uint8_t diVal = (uint8_t)((val[0] - 0x30) << addr8);
-							if (diVal > 0) bufDO |= diVal;
-							else bufDO &= ~(1 << diVal);
-							bufDI = bufDO; // simulated return
-							HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);  // Toggle output PA2
-
-							sprintf(&newstr[0], "OK,%s,%d\n", &id[0], ((bufDO >> addr8) & 0x01));
+							uint8_t chng = 0;
+							uint8_t msk = 1 << addr8;
+							uint8_t inVal = ((val[0] - 0x30) << addr8);
+							chng = newVal(&bufDI, msk, inVal);
+							HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);  // Toggle LED
+							sprintf(&newstr[0], "OK,%s,%d\n", &id[0], ((bufDI >> addr8) & 0x01));
 							HAL_UART_Transmit(huart, (uint8_t*)newstr, strlen(newstr), HAL_MAX_DELAY);
+							if (chng) triggerChng(msk, inVal);
 						}
 					}
 					else if (strcmp(space, "4") == 0) // AO
@@ -237,11 +238,20 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 						else
 						{
 							// Prepare to write qty values
-							bufAO[addr8] = ascToU16(val);
-							bufAI[addr8] = bufAO[addr8];
-							sprintf(&newstr[0], "OK,%s,%04d\n", &id[0], bufAO[addr8]);
+							int16_t *AO = &bufAO[addr8];
+							int16_t *AI = &bufAI[addr8];
+							*AO = ascToU16(val);
+							if (*AI != *AO)
+							{
+								*AI = *AO;
+								triggerAIChng(&M1, addr8, *AI);
+								triggerAIChng(&M2, addr8, *AI);
+							}
+
+							sprintf(&newstr[0], "OK,%s,%04d\n", &id[0], *AO);
 							HAL_UART_Transmit(huart, (uint8_t*)newstr, strlen(newstr), HAL_MAX_DELAY);
-						}					}
+						}
+					}
 				}
             }
 

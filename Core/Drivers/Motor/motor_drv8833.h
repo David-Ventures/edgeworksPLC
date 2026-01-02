@@ -21,6 +21,7 @@ typedef enum {
 } MotorZeroMode;
 
 typedef struct {
+  uint8_t id;
   TIM_HandleTypeDef *htim;
   uint32_t ch_in1;
   uint32_t ch_in2;
@@ -57,6 +58,7 @@ void Motor_SetZeroMode(MotorDRV8833 *m, MotorZeroMode mode);
 void Motor_Stop(MotorDRV8833 *m);
 void Motor_Update(MotorDRV8833 *m);
 void Motor_ForceOutputs(MotorDRV8833 *m, int16_t signed_cmd); // immediate apply (no slew)
-
+void triggerChng(uint8_t, uint8_t);
+void triggerAIChng(MotorDRV8833 *m, uint8_t, int16_t);
 
 #endif /* DRIVERS_MOTOR_MOTOR_DRV8833_H_ */

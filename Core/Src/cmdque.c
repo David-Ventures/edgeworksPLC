@@ -24,6 +24,7 @@
 #define false 0*/
 
 extern void *ParamOut;
+extern MotorDRV8833 M1, M2;
 
 CmdQueue Queue;
 ItfcStruct IsRet;
@@ -120,8 +121,11 @@ bool ProcQueue(uint32_t Cmd, void *pPIn, void *pPOut)
 		{
 			Motor_Params *ml_p = (Motor_Params *)pPIn;
 			uint32_t t = ml_p->Time; // 10 msec
-			MotorDRV8833 *m = ml_p->m;
-			Motor_Update(m);
+//			MotorDRV8833 *m = ml_p->m;
+//			MotorDRV8833 *m = &M1;
+			Motor_Update(&M1);
+//			m = &M2;
+			Motor_Update(&M2);
 			CommandQueue(MOTOR_LOOP, ml_p, t);
 		}
 		case SET_PWM:
@@ -141,7 +145,7 @@ bool ProcQueue(uint32_t Cmd, void *pPIn, void *pPOut)
 				tim = (int16_t)mpwm1_p->Time;
 				Motor_Set(mpwm1_p->m, tim);
 			}
-			Motor_SetStandby((tim == 0) ? 0 : 1);
+//			Motor_SetStandby((tim == 0) ? 0 : 1);
 			return false;
 		}
 

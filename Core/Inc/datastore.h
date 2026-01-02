@@ -15,5 +15,5 @@ bool getDO(uint8_t, uint8_t );
 bool getDI(uint8_t, uint8_t);
 bool getHR(uint8_t, uint8_t); // Reg Out
 bool getHI(uint8_t, uint8_t);
-
+uint8_t newVal( uint8_t *, uint8_t, uint8_t);
 #endif /* INC_DATASTORE_H_ */

@@ -7,6 +7,7 @@
 
 // motor_drv8833.c
 #include "motor_drv8833.h"
+#include "../Tim/tim_driver.h"
 
 static inline int16_t clamp16(int16_t x, int16_t lo, int16_t hi) {
   if (x < lo) return lo;
@@ -28,7 +29,8 @@ static inline uint16_t cmd_to_ccr(const MotorDRV8833 *m, int16_t mag) {
   return (uint16_t)v;
 }
 
-static void apply_pwm(MotorDRV8833 *m, int16_t signed_cmd) {
+
+/*static void apply_pwm(MotorDRV8833 *m, int16_t signed_cmd) {
   int16_t cmd = signed_cmd;
 
   // deadband
@@ -46,12 +48,29 @@ static void apply_pwm(MotorDRV8833 *m, int16_t signed_cmd) {
   if (cmd == 0) {
     if (m->zero_mode == MOTOR_ZERO_BRAKE) {
       // Brake: IN1=IN2=100% (logic high)
-      __HAL_TIM_SET_COMPARE(m->htim, m->ch_in1, m->arr);
-      __HAL_TIM_SET_COMPARE(m->htim, m->ch_in3, m->arr);
+      if (m->id == 1)
+      {
+        __HAL_TIM_SET_COMPARE(m->htim, m->ch_in1, m->arr);
+        __HAL_TIM_SET_COMPARE(m->htim, m->ch_in3, m->arr);
+      }
+      else if (m->id == 2)
+      {
+        __HAL_TIM_SET_COMPARE(m->htim, m->ch_in2, m->arr);
+        __HAL_TIM_SET_COMPARE(m->htim, m->ch_in4, m->arr);
+      }
+
     } else {
       // Coast: both low
-      __HAL_TIM_SET_COMPARE(m->htim, m->ch_in1, 0);
-      __HAL_TIM_SET_COMPARE(m->htim, m->ch_in3, 0);
+      if (m->id == 1)
+      {
+        __HAL_TIM_SET_COMPARE(m->htim, m->ch_in1, 0);
+        __HAL_TIM_SET_COMPARE(m->htim, m->ch_in3, 0);
+      }
+      else if (m->id == 2)
+      {
+          __HAL_TIM_SET_COMPARE(m->htim, m->ch_in2, 0);
+          __HAL_TIM_SET_COMPARE(m->htim, m->ch_in4, 0);
+      }
     }
     return;
   }
@@ -60,14 +79,66 @@ static void apply_pwm(MotorDRV8833 *m, int16_t signed_cmd) {
 
   if (cmd > 0) {
     // Forward: IN1 = PWM, IN2 = 0
-    __HAL_TIM_SET_COMPARE(m->htim, m->ch_in1, ccr);
-    __HAL_TIM_SET_COMPARE(m->htim, m->ch_in3, 0);
+    if (m->id == 1)
+    {
+      __HAL_TIM_SET_COMPARE(m->htim, m->ch_in1, ccr);
+      __HAL_TIM_SET_COMPARE(m->htim, m->ch_in3, 0);
+    }
+    else if (m->id == 2)
+    {
+        __HAL_TIM_SET_COMPARE(m->htim, m->ch_in2, ccr);
+        __HAL_TIM_SET_COMPARE(m->htim, m->ch_in4, 0);
+    }
   } else {
     // Reverse: IN1 = 0, IN2 = PWM
+	if (m->id == 1)
+	{
+      __HAL_TIM_SET_COMPARE(m->htim, m->ch_in1, 0);
+      __HAL_TIM_SET_COMPARE(m->htim, m->ch_in3, ccr);
+	}
+    else if (m->id == 2)
+    {
+        __HAL_TIM_SET_COMPARE(m->htim, m->ch_in2, 0);
+        __HAL_TIM_SET_COMPARE(m->htim, m->ch_in4, ccr);
+    }
+  }
+}*/
+
+static void apply_pwm(MotorDRV8833 *m, int16_t signed_cmd)
+{
+  int16_t cmd = signed_cmd;
+
+  if (abs16(cmd) <= m->deadband) cmd = 0;
+
+  if (cmd != 0 && m->min_start > 0) {
+    int16_t mag = abs16(cmd);
+    if (mag < m->min_start) {
+      cmd = (cmd > 0) ? m->min_start : (int16_t)(-m->min_start);
+    }
+  }
+
+  if (cmd == 0) {
+    if (m->zero_mode == MOTOR_ZERO_BRAKE) {
+      __HAL_TIM_SET_COMPARE(m->htim, m->ch_in1, m->arr);
+      __HAL_TIM_SET_COMPARE(m->htim, m->ch_in2, m->arr);
+    } else {
+      __HAL_TIM_SET_COMPARE(m->htim, m->ch_in1, 0);
+      __HAL_TIM_SET_COMPARE(m->htim, m->ch_in2, 0);
+    }
+    return;
+  }
+
+  uint16_t ccr = cmd_to_ccr(m, abs16(cmd));
+
+  if (cmd > 0) {
+    __HAL_TIM_SET_COMPARE(m->htim, m->ch_in1, ccr);
+    __HAL_TIM_SET_COMPARE(m->htim, m->ch_in2, 0);
+  } else {
     __HAL_TIM_SET_COMPARE(m->htim, m->ch_in1, 0);
-    __HAL_TIM_SET_COMPARE(m->htim, m->ch_in3, ccr);
+    __HAL_TIM_SET_COMPARE(m->htim, m->ch_in2, ccr);
   }
 }
+
 
 void Motor_Init(MotorDRV8833 *m) {
   if (!m || !m->htim) return;
@@ -141,5 +212,62 @@ void Motor_Update(MotorDRV8833 *m) {
   m->current = (int16_t)(m->current + diff);
 
   apply_pwm(m, m->current);
+}
+
+void triggerChng(uint8_t msk, uint8_t val)
+{
+	uint8_t chng = msk & val;
+	uint8_t tmp = 0;
+
+	switch (msk)
+	{
+		case 1:
+		{
+			if (chng == 0) // Turn off MOTOR_EN;
+				Motor_SetStandby(0);
+			else
+				Motor_SetStandby(1); // Turn on MOTOR_EN
+			break;
+		}
+		case 2:
+		{
+			if (chng == 0) // Turn off ESTOP;
+				tmp = 1;
+			else
+				tmp = 0; // Turn on ESTOP
+			break;
+		}
+		case 4:
+		{
+			if (chng == 0) // Turn off BRAKE_MODE;
+				tmp = 1;
+			else
+				tmp = 0; // Turn on BRAKE_MODE
+			break;
+		}
+		default: break;
+	}
+}
+
+void triggerAIChng(MotorDRV8833 *m, uint8_t reg, int16_t val)
+{
+	uint8_t tmp;
+
+	switch (reg)
+	{
+		case 0: // Speed -1000 @ 1000
+		{
+			Motor_Set(m, val);
+			break;
+		}
+		case 1: // Steering -1000 @ 1000
+		{
+			break;
+		}
+		case 2:
+		{
+			break;
+		}
+	}
 }
 
